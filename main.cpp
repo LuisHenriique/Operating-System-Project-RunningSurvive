@@ -16,6 +16,7 @@ struct Player
     char symbol;    // simbolo do player
     char direction; // ultima direção selecionada
 };
+
 /*Prototipos de funções*/
 void draw_map();
 bool allow_move(int nx, int ny);
@@ -87,10 +88,10 @@ int kbhit()
 
 void thread_player(Player &p)
 {
-    // espera a entrada de comando (lida pela main_function e compartilhada)
-    // move o jogador se for válido
-    // antes de entrar na rc usa semafora
-    // ao sair libera
+    // Verifica se o usuário digitou algo no teclado
+    // Coloca e verifica os movimentos, após isso gera o buffer de direção para evitar de mover sem parar
+    // Realiza o sicroniza as threadas com time de 1s
+
     while (playing)
     {
         if (p.direction != ' ')
@@ -154,11 +155,8 @@ void move_player(Player &p)
 void main_game_loop()
 {
     // inicia o mapa
-    // cria as threads dos players
     // le teclado dos 2 players
-    // atualiza o mapa a cada movimento
-    // desenha o mapa na tela
-    // encerra quando F é conquistado
+    // Exibe mapa
     while (playing)
     {
         draw_map();
