@@ -38,7 +38,7 @@ char map[LIN][COL] = {
     "#  #######   ###############",
     "#         CCCC            F#",
     "############################"};
-char base_map[LIN][COL]; // Será a cópia do labirinto no estado atual
+char base_map[LIN][COL]; // Será a cópia do labirinto no estado atual, é uma camada fixa que contém os dados originais do mapa
 
 // Variáveis globais
 mutex mtx_map;       //  Evita condição de corrida ao desenhar o mapa
@@ -136,6 +136,7 @@ void move_player(Player &p)
 
     // capture o que havia na célula anterior (base) para checar saída depois
     char prev_base = base_map[p.x][p.y];
+    // Retorna true se o player está fora da RC e vai entrar em seguida
     bool enteringRC = (base_map[nx][ny] == 'C' && base_map[p.x][p.y] != 'C');
 
     if (enteringRC)
