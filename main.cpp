@@ -24,7 +24,6 @@ int kbhit();
 void thread_player(Player &p);
 void move_player(Player &p);
 void main_game_loop();
-void transition_rc(Player &p, int dx, int dy);
 
 // Global shared states
 const int LIN = 10;
@@ -39,6 +38,7 @@ char map[LIN][COL] = {
     "#  #######   ###############",
     "#         CCCC            F#",
     "############################"};
+char base_map[LIN][COL]; // Será a cópia do labirinto no estado atual
 
 // Variáveis globais
 mutex mtx_map;       //  Evita condição de corrida ao desenhar o mapa
@@ -103,10 +103,6 @@ void thread_player(Player &p)
     }
 }
 
-void transition_rc(Player &p, int dx, int dy)
-{
-}
-
 void move_player(Player &p)
 {
     int nx = p.x, ny = p.y;
@@ -125,54 +121,72 @@ void move_player(Player &p)
         ny++;
         break;
     default:
-        break;
+        return;
     }
 
-    // Testa se o novo movimento está dentro dos limites do jogo
     if (!allow_move(nx, ny))
         return;
 
-    // Mutex aqui para evitar condição de disputa ao desenhar no mapa
-    lock_guard<mutex> lock(mtx_map); // trava automaticamente
+    // Garante a exclusão mútua no acesso ao mapa, utilizamos unique_lock pois podemos liberar o mutex e pegar novamente depois
+    unique_lock<mutex> lock(mtx_map);
 
-    // Evita de ocorrer sobreposição entre players
-    if (map[nx][ny] == '1' or map[nx][ny] == '2')
-    {
+    // evita sobreposição imediata
+    if (map[nx][ny] == '1' || map[nx][ny] == '2')
         return;
-    }
-    // Verifica se vai entrar na regição crítica
-    if (map[p.x][p.y] != 'C' and map[nx][ny] == 'C')
+
+    // capture o que havia na célula anterior (base) para checar saída depois
+    char prev_base = base_map[p.x][p.y];
+    bool enteringRC = (base_map[nx][ny] == 'C' && base_map[p.x][p.y] != 'C');
+
+    if (enteringRC)
     {
-        // Aciona o semáforo que entrou na RC
+        // vamos entrar na RC: liberar mutex antes de esperar no semáforo
+        lock.unlock();
         sem_wait(&sem_RC);
-    }
-    else if ((map[p.x][p.y] == 'C' and map[nx][ny] == 'C'))
-    {
-    }
-    else if (map[p.x][p.y] == 'C' and map[nx][ny] != 'C')
-    {
-        sem_post(&sem_RC);   // Libera a RC
-        map[p.x][p.y] = 'C'; // restaura o 'C' quando sair da RC
-    }
-    else
-    // qualquer parte do labirinto sem ser RC
-    {
-        map[p.x][p.y] = ' '; // jogador foi movido, espaço atual é zerado
+        lock.lock();
+
+        // revalidar condições após ter adquirido semáforo
+        if (!allow_move(nx, ny) || map[nx][ny] == '1' || map[nx][ny] == '2')
+        {
+            // não é possível entrar (outro jogador ocupou), libera semáforo e sai
+            sem_post(&sem_RC);
+            return;
+        }
     }
 
-    if (map[nx][ny] == 'F')
-        playing = false; // sinaliza que o jogo se encerrou, temos um vencedor.
+    // restaura a célula anterior ao seu valor de base (C, F ou ' ')
+    map[p.x][p.y] = base_map[p.x][p.y];
 
-    p.x = nx, p.y = ny;       // Atualiza com as novas posições
-    map[p.x][p.y] = p.symbol; // move o player
+    // atualiza posição do jogador
+    p.x = nx;
+    p.y = ny;
+
+    // marca o jogador na nova célula
+    map[p.x][p.y] = p.symbol;
+
+    // redesenha
     draw_map();
 
-    // Se o jogo encerrou, imprime o vencedor.
-    if (!playing)
+    // detecta saída da RC: se prev_base era 'C' e a base da atual não é 'C'
+    bool just_left_RC = (prev_base == 'C' && base_map[p.x][p.y] != 'C');
+
+    if (just_left_RC)
     {
+        // liberamos semáforo - já não precisamos do mutex para isso,
+        // mas como ainda temos lock, liberamos depois de postar
+        // (não há risco de deadlock porque sem_post não bloqueia)
+        sem_post(&sem_RC);
+    }
+
+    // se chegou na bandeira (base == 'F'), encerra
+    if (base_map[p.x][p.y] == 'F')
+    {
+        playing = false;
         cout << "\nJogador " << p.symbol << " venceu!\n";
     }
+    // lock é liberado ao sair do escopo
 }
+
 // Thread principal do jogo
 void main_game_loop()
 {
@@ -225,6 +239,14 @@ void main_game_loop()
 
 int main()
 {
+    // copy estado incial do jogo
+    for (int i = 0; i < LIN; i++)
+    {
+        for (int j = 0; j < COL; j++)
+        {
+            base_map[i][j] = map[i][j];
+        }
+    }
     sem_init(&sem_RC, 0, 1); // apenas um jogador por vez
 
     // Coloca os jogadores nas posições inicias
