@@ -24,6 +24,7 @@ int kbhit();
 void thread_player(Player &p);
 void move_player(Player &p);
 void main_game_loop();
+void transition_rc(Player &p, int dx, int dy);
 
 // Global shared states
 const int LIN = 10;
@@ -42,6 +43,7 @@ char map[LIN][COL] = {
 // Variáveis globais
 mutex mtx_map;       //  Evita condição de corrida ao desenhar o mapa
 bool playing = true; // Jogo está rodando
+sem_t sem_RC;        // Região Crítica
 
 void draw_map()
 {
@@ -88,10 +90,8 @@ int kbhit()
 
 void thread_player(Player &p)
 {
-    // Verifica se o usuário digitou algo no teclado
-    // Coloca e verifica os movimentos, após isso gera o buffer de direção para evitar de mover sem parar
-    // Realiza o sicroniza as threadas com time de 1s
-
+    // Verifica se o usuário digitou algo no teclado e foi capturado p/ p.direction
+    // Coloca e verifica os movimentos, após isso zera o buffer de direção para evitar de mover sem parar
     while (playing)
     {
         if (p.direction != ' ')
@@ -102,6 +102,11 @@ void thread_player(Player &p)
         }
     }
 }
+
+void transition_rc(Player &p, int dx, int dy)
+{
+}
+
 void move_player(Player &p)
 {
     int nx = p.x, ny = p.y;
@@ -129,14 +134,31 @@ void move_player(Player &p)
 
     // Mutex aqui para evitar condição de disputa ao desenhar no mapa
     lock_guard<mutex> lock(mtx_map); // trava automaticamente
+
+    // Evita de ocorrer sobreposição entre players
     if (map[nx][ny] == '1' or map[nx][ny] == '2')
     {
         return;
     }
-
-    // Apaga a posição anterior apenas se era ele mesmo, evita sobreposições entre os jogadores.
-    if (map[p.x][p.y] == p.symbol)
-        map[p.x][p.y] = ' '; // jogador foi movido, espaço anterior fica em branco.
+    // Verifica se vai entrar na regição crítica
+    if (map[p.x][p.y] != 'C' and map[nx][ny] == 'C')
+    {
+        // Aciona o semáforo que entrou na RC
+        sem_wait(&sem_RC);
+    }
+    else if ((map[p.x][p.y] == 'C' and map[nx][ny] == 'C'))
+    {
+    }
+    else if (map[p.x][p.y] == 'C' and map[nx][ny] != 'C')
+    {
+        sem_post(&sem_RC);   // Libera a RC
+        map[p.x][p.y] = 'C'; // restaura o 'C' quando sair da RC
+    }
+    else
+    // qualquer parte do labirinto sem ser RC
+    {
+        map[p.x][p.y] = ' '; // jogador foi movido, espaço atual é zerado
+    }
 
     if (map[nx][ny] == 'F')
         playing = false; // sinaliza que o jogo se encerrou, temos um vencedor.
@@ -189,7 +211,10 @@ void main_game_loop()
             case 'l':
                 p2.direction = 'r';
                 break;
-
+            case 'b':
+                // Tecla enter para encerrar o jogo
+                playing = false;
+                break;
             default:
                 break;
             }
@@ -200,6 +225,8 @@ void main_game_loop()
 
 int main()
 {
+    sem_init(&sem_RC, 0, 1); // apenas um jogador por vez
+
     // Coloca os jogadores nas posições inicias
     map[p1.x][p1.y] = '1';
     map[p2.x][p2.y] = '2';
@@ -212,5 +239,6 @@ int main()
     player_1.join();
     player_2.join();
 
+    sem_destroy(&sem_RC); // destrói região crítica criada
     return 0;
 }
