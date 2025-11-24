@@ -33,6 +33,24 @@ Instale as dependências de desenvolvimento:
 sudo apt-get update
 sudo apt-get install build-essential libncurses5-dev libncursesw5-dev
 ```
+## Compatibilidade e Execução em Outros Sistemas
+
+Este projeto foi desenvolvido nativamente para **Linux** (padrão POSIX), utilizando as bibliotecas `ncurses` e `pthread`. Abaixo estão as instruções para execução em Windows e MacOS.
+
+### Windows (Via WSL)
+Este código **não** compila nativamente no CMD ou PowerShell do Windows, pois utiliza cabeçalhos exclusivos do Linux (<ncurses.h>, <semaphore.h>).
+Para rodar no Windows, é **obrigatório** o uso do **WSL (Windows Subsystem for Linux)**.
+
+1. Abra o terminal do WSL (Ubuntu/Debian).
+2. Instale as dependências: `sudo apt-get install build-essential libncurses5-dev libncursesw5-dev`
+3. Compile e rode normalmente usando `make` e `./game`.
+
+### MacOS
+O MacOS é baseado em Unix e suporta nativamente as bibliotecas utilizadas.
+
+1. Certifique-se de ter as ferramentas de linha de comando instaladas (`xcode-select --install`).
+2. Compile usando o Makefile fornecido (`make`).
+3. **Nota:** Caso ocorra erro de biblioteca não encontrada, instale via Homebrew: `brew install ncurses`.
 
 ---
 
@@ -40,7 +58,7 @@ sudo apt-get install build-essential libncurses5-dev libncursesw5-dev
 
 Você pode compilar usando o **Makefile** (recomendado) ou manualmente.
 
-### ✔️ Opção 1: Usando Make (Recomendado)
+### Opção 1: Usando Make (Recomendado)
 
 Na pasta do projeto:
 
