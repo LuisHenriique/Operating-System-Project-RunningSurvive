@@ -3,6 +3,13 @@
 // Run: ./game
 
 /*
+NOME: Gabriel de Araujo Lima​ ​NUSP: 14571376​
+NOME: Luis Henrique Ponciano dos Santos ​ NUSP: 15577760
+NOME: Gabriel Demba​ ​NUSP: 15618344
+NOME: Wiltord N M NUSP: 15595392
+*/
+
+/*
  * ======================================================================================
  * DOCUMENTAÇÃO DO SISTEMA OPERACIONAL (THREADS E SEMÁFOROS)
  * ======================================================================================
@@ -12,6 +19,11 @@
  * - Cada jogador é controlado por uma thread independente (t1 e t2).
  * - Isso permite que o processamento de movimento de cada jogador ocorra em paralelo,
  * sem que um bloqueie a execução do outro ou da thread principal (main).
+ * Assim as threads sao
+ * Main Thread (Thread principal): Responsável por iniciar o jogo, lidar com a interface gráfica (usando ncurses), 
+ * capturar a entrada do usuário (movimentos dos jogadores) e coordenar a execução do jogo.
+ * t1 (Thread do Jogador 1): Controla o movimento e a lógica do Jogador 1, realizando as ações do jogador
+ * no mapa em paralelo com o Jogador 2.
  * * 2. SEMÁFORO (sem_t):
  * - Utilizado para controlar o acesso à "Ponte" (marcada com 'C' no mapa).
  * - A ponte é uma Região Crítica Lógica do jogo: apenas um jogador pode estar nela
@@ -115,7 +127,7 @@ using namespace std;
 const int LIN = 21; 
 const int COL = 61; 
 
-// --- RECURSOS COMPARTILHADOS (Shared Resources) ---
+// --- RECURSOS COMPARTILHADOS 
 /* Matriz constante que serve de modelo para o mapa (chão, paredes, ponte) */
 char base_map[LIN][COL] = {
     "############################################################",
@@ -240,11 +252,6 @@ void move_player(Player &p) {
     /* Entrada na Seção Crítica de DADOS: Solicita acesso exclusivo à matriz */
     unique_lock<mutex> lock(mtx_map); // Adquire mutex mtx_map para entrar em exclusão mútua. No jogo, garante que ninguém mexa no mapa agora.
 
-    // (REMOVIDA) colisão rígida que impedia ultrapassagem:
-    // if (map_view[nx][ny] == '1' || map_view[nx][ny] == '2') return;
-    // Agora permitimos mover para uma célula ocupada por outro jogador
-    // e evitamos apagar o outro jogador ao restaurar o chão.
-
     char next_base = base_map[nx][ny];      // Lê terreno futuro para lógica. No jogo, identifica se é ponte ou chão.
     char current_base = base_map[p.x][p.y]; // Lê terreno atual para lógica. No jogo, usado para apagar rastro.
 
@@ -293,7 +300,7 @@ void move_player(Player &p) {
 }
 
 // FUNÇÃO DA THREAD
-/* Loop de execução de cada jogador (Thread Worker) */
+/* Loop de execução de cada jogador */
 void thread_player(Player &p) {
     while (playing) { // Verifica flag global para manter thread. No jogo, define a vida útil do jogador.
         if (p.direction != ' ') { // Checa input para verificar intenção. No jogo, evita processamento inútil se parado.
