@@ -1,10 +1,14 @@
-all: main.o
+# Default target
+all: game
 
-main.o: main.cpp
-	g++ main.cpp -o main -pthread -std=c++17 -Wall
+# Compile game.cpp into executable "game"
+game: game.cpp
+	g++ game.cpp -o game -pthread -std=c++17 -Wall -lncurses
 
-run: all
-	./main
+# Run the program
+run: game
+	./game
 
+# Clean compiled files
 clean:
-	rm -rf *.o main
+	rm -f game *.o
