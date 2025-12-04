@@ -1,0 +1,61 @@
+RESUMO DAS ALTERAÇÕES - PROJETO SISTEMAS OPERACIONAIS
+
+
+1. INTERFACE GRÁFICA E PERFORMANCE (MIGRAÇÃO PARA NCURSES)
+------------------------------------------------------------------------
+ANTES:
+- Utilizava a biblioteca padrão <iostream> com o comando system("clear")
+  dentro do loop de renderização.
+- PROBLEMA: Causava "flickering" (tela piscando) constante e alto uso de
+  processamento para limpar e redesenhar o terminal inteiro a cada frame.
+- Não possuía suporte a cores.
+
+DEPOIS:
+- Implementação da biblioteca <ncurses.h>.
+- MELHORIA: A tela não é mais limpa inteiramente; apenas os caracteres que
+  mudam de posição são atualizados. Movimentação fluida e profissional.
+- Adição de cores para diferenciar Jogador 1 (Ciano), Jogador 2 (Vermelho)
+  e a Região Crítica (Amarelo).
+
+2. REDESENHO DO MAPA E MECÂNICA DE JOGO (FAIRNESS)
+------------------------------------------------------------------------
+ANTES:
+- Mapa pequeno (10x30) e assimétrico.
+- O Jogador 1 iniciava em (1,1) e o Jogador 2 em (1,26).
+- PROBLEMA: O mapa permitia caminhos alternativos, tornando possível vencer
+  o jogo sem nunca passar pela Região Crítica (ponte), o que invalidava
+  o propósito do trabalho (testar semáforos).
+
+DEPOIS:
+- Mapa expandido para (21x61).
+- Design "Funil Estrito": Foi criada uma barreira sólida horizontal que divide
+  o mapa ao meio. A única passagem possível é uma ponte vertical central.
+- Simetria Perfeita: Ambos os jogadores percorrem a mesma distância.
+- Objetivo Claro: Jogador 1 deve ir do topo-esquerdo para a base-direita.
+  Jogador 2 faz o caminho inverso. Vitória só é possível após cruzar a ponte.
+
+3. SINCRONIZAÇÃO E SEMÁFOROS (REGIÃO CRÍTICA)
+------------------------------------------------------------------------
+ANTES:
+- A lógica de sem_trywait existia, mas raramente era acionada devido ao
+  design aberto do mapa.
+
+DEPOIS:
+- A lógica de Exclusão Mútua foi mantida e agora é visualmente comprovada.
+- Como a ponte tem largura de apenas 1 bloco (marcada como 'C'), se o
+  Jogador 1 estiver nela, o semáforo bloqueia fisicamente a entrada do
+  Jogador 2, que deve esperar a liberação do recurso (sem_post).
+
+4. CONTROLE DE INPUT E THREADS
+------------------------------------------------------------------------
+ANTES:
+- Utilizava uma implementação manual e complexa da função kbhit() usando
+  <termios.h> e <fcntl.h> para manipular o buffer do terminal.
+- Input podia apresentar atrasos na resposta das threads.
+
+DEPOIS:
+- Utiliza as funções nativas da Ncurses (getch e nodelay).
+- O input é não-bloqueante, permitindo que as threads dos jogadores
+  e a thread de renderização rodem de forma independente e responsiva.
+
+========================================================================
